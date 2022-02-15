@@ -8,12 +8,7 @@ body {
     padding-left: 15px;
 }
 
-.page-header {
-    background-color: #6193b5;
-    margin-top: 0;
-    margin-bottom: 40px;
-    padding: 20px 20px 20px 40px;
-}
+
 
 .page-header h1,
 .page-header h1 a,
@@ -77,4 +72,8 @@ h4 {
 .btn-secondary:hover {
     color: #FFFFFF;
     background-color: #C25100;
+}
+
+.comment {
+    margin: 20px 0px 20px 20px;
 }
