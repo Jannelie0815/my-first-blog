@@ -18,4 +18,3 @@ sqlparse==0.4.2
 toml==0.10.2
 tzdata==2021.5
 whitenoise==6.0.0
-pip install psycopg2-binary
