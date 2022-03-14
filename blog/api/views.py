@@ -3,6 +3,10 @@ from blog.api.serializers import PostSerializer, CommentSerializer
 from blog.models import Post, Comment
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.authtoken.views import ObtainAuthToken
+from rest_framework.authtoken.models import Token
+from rest_framework.permissions import AllowAny
+
 
 class PostsDataMixin:
     """Mixin for getting posts data."""
@@ -40,7 +44,8 @@ class PostsDataMixin:
         data = {"id": comment.id, "post": comment.post, "text": comment.text}
         return data
 
-class CommentsDataMixin:
+
+class CommentsDataMixin(PostsDataMixin):
     """Mixin for getting comment data."""
     
     def get_comments_data(self, comments):
@@ -49,8 +54,10 @@ class CommentsDataMixin:
         for comment in comments:
             data = {
                 "id": comment.id, 
+                "post": self.get_post_data(comment.post),
                 "author": comment.author, 
-                "text": comment.text
+                "text": comment.text,
+                "is_approved": comment.is_approved(),
                 }
             comments_data.append(data)
         
@@ -62,7 +69,8 @@ class CommentsDataMixin:
             "id": comment.id, 
             "post": comment.post.id,
             "author": comment.author,
-            "text": comment.text
+            "text": comment.text,
+            "is_approved" : comment.is_approved()
             }
         return data          
     
@@ -70,6 +78,8 @@ class CommentsDataMixin:
 class PublishedPostsAPIView(PostsDataMixin, APIView):
     """Get all published posts."""
     
+    permission_classes = [AllowAny]
+
     def get(self, request, *args, **kwargs):
         """Get all published pospts data."""
         posts = Post.objects.exclude(published_date=None)
@@ -251,11 +261,13 @@ class CommentsAPIView(CommentsDataMixin, APIView):
         
 
 class ApprovedCommentsAPIView(CommentsDataMixin, APIView):
-    """API for getting the approved comments"""
+    """API for getting the approved comments."""
     
+    permission_classes = [AllowAny]
+
     def get(self, request, *args, **kwargs):
-        """Get all published posts data."""
-        comments = Comment.objects.filter(approved_comment=None)
+        """Get all approved comment data."""
+        comments = Comment.objects.exclude(approved_comment=False)
         comments_data = self.get_comments_data(comments)
         response = {
             "data": comments_data, 
@@ -287,3 +299,38 @@ class ApprovingCommentAPIView(APIView):
             "message": "Comment Removed!"
             }
         return Response(response, status=200)
+
+
+class CustomAuthToken(ObtainAuthToken):
+    
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        user = serializer.validated_data['user']
+        token, created = Token.objects.get_or_create(user=user)
+        return Response({
+            'token': token.key, 
+            'user_id': user.pk,
+            'email': user.email
+            }
+        )
+
+
+
+class PostCommentsAPIView(CommentsDataMixin, PostsDataMixin, APIView):
+    """API for getting comments for a specific post"""
+    
+    def get(self, request, post_id, *args, **kwargs):
+        
+        try:
+            comments = Comment.objects.filter(post=post_id)
+            response = {
+                    "data": self.get_comments_data(comments)
+                }
+            return Response(response, 200)
+        except Comment.DoesNotExist:
+            error_response = {
+                "title": "Error",
+                "message": "Comment not found."
+            }
+            return Response(error_response, status=400)
